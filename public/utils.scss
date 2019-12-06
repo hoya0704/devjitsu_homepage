@@ -1,0 +1,987 @@
+
+/*
+	vars
+*/
+// Misc.
+$misc: (
+	z-index-base:		10000,
+	max-features:		20,
+	max-sidebar-links:	20
+);
+
+// Duration.
+$duration: (
+	transition:			0.2s,
+	activation:			1s
+);
+
+// Size.
+$size: (
+	border-radius:		0.25em,
+	border-width:		1px,
+	element-height:		2.75em,
+	element-margin:		2em,
+	sidebar-width:		18em,
+	sidebar-height:		3.5em,	// when <=large is active
+	inner-width:		75em
+);
+
+// Font.
+$font: (
+	family:				(Arial, Helvetica, sans-serif),
+	family-fixed:		('Courier New', monospace),
+	weight:				normal,
+	weight-bold:		bold,
+	kerning-alt:		0.25em
+);
+
+// Palette.
+$palette: (
+	bg:					#312450,
+	bg-alt:				darken(#312450, 5),
+	fg:					rgba(255,255,255,0.55),
+	fg-bold:			#ffffff,
+	fg-light:			rgba(255,255,255,0.35),
+	border:				rgba(255,255,255,0.15),
+	border-bg:			rgba(255,255,255,0.05),
+	accent1:			#5e42a6,
+	accent1-alt:		darken(#5e42a6, 10),
+	accent2:			#5052b5,
+	accent2-alt:		darken(#5052b5, 10),
+	accent3:			#b74e91,
+	accent3-alt:		darken(#b74e91, 10)
+);
+
+/*
+	functions
+*/
+/// Removes a specific item from a list.
+/// @author Hugo Giraudel
+/// @param {list} $list List.
+/// @param {integer} $index Index.
+/// @return {list} Updated list.
+@function remove-nth($list, $index) {
+
+	$result: null;
+
+	@if type-of($index) != number {
+		@warn "$index: #{quote($index)} is not a number for `remove-nth`.";
+	}
+	@else if $index == 0 {
+		@warn "List index 0 must be a non-zero integer for `remove-nth`.";
+	}
+	@else if abs($index) > length($list) {
+		@warn "List index is #{$index} but list is only #{length($list)} item long for `remove-nth`.";
+	}
+	@else {
+
+		$result: ();
+		$index: if($index < 0, length($list) + $index + 1, $index);
+
+		@for $i from 1 through length($list) {
+
+			@if $i != $index {
+				$result: append($result, nth($list, $i));
+			}
+
+		}
+
+	}
+
+	@return $result;
+
+}
+
+/// Gets a value from a map.
+/// @author Hugo Giraudel
+/// @param {map} $map Map.
+/// @param {string} $keys Key(s).
+/// @return {string} Value.
+@function val($map, $keys...) {
+
+	@if nth($keys, 1) == null {
+		$keys: remove-nth($keys, 1);
+	}
+
+	@each $key in $keys {
+		$map: map-get($map, $key);
+	}
+
+	@return $map;
+
+}
+
+/// Gets a duration value.
+/// @param {string} $keys Key(s).
+/// @return {string} Value.
+@function _duration($keys...) {
+	@return val($duration, $keys...);
+}
+
+/// Gets a font value.
+/// @param {string} $keys Key(s).
+/// @return {string} Value.
+@function _font($keys...) {
+	@return val($font, $keys...);
+}
+
+/// Gets a misc value.
+/// @param {string} $keys Key(s).
+/// @return {string} Value.
+@function _misc($keys...) {
+	@return val($misc, $keys...);
+}
+
+/// Gets a palette value.
+/// @param {string} $keys Key(s).
+/// @return {string} Value.
+@function _palette($keys...) {
+	@return val($palette, $keys...);
+}
+
+/// Gets a size value.
+/// @param {string} $keys Key(s).
+/// @return {string} Value.
+@function _size($keys...) {
+	@return val($size, $keys...);
+}
+
+/*
+	mixins
+*/
+/// Makes an element's :before pseudoelement a FontAwesome icon.
+/// @param {string} $content Optional content value to use.
+/// @param {string} $category Optional category to use.
+/// @param {string} $where Optional pseudoelement to target (before or after).
+@mixin icon($content: false, $category: regular, $where: before) {
+
+	text-decoration: none;
+
+	&:#{$where} {
+
+		@if $content {
+			content: $content;
+		}
+
+		-moz-osx-font-smoothing: grayscale;
+		-webkit-font-smoothing: antialiased;
+		display: inline-block;
+		font-style: normal;
+		font-variant: normal;
+		text-rendering: auto;
+		line-height: 1;
+		text-transform: none !important;
+
+		@if ($category == brands) {
+			font-family: 'Font Awesome 5 Brands';
+		}
+		@else if ($category == solid) {
+			font-family: 'Font Awesome 5 Free';
+			font-weight: 900;
+		}
+		@else {
+			font-family: 'Font Awesome 5 Free';
+			font-weight: 400;
+		}
+
+	}
+
+}
+
+/// Applies padding to an element, taking the current element-margin value into account.
+/// @param {mixed} $tb Top/bottom padding.
+/// @param {mixed} $lr Left/right padding.
+/// @param {list} $pad Optional extra padding (in the following order top, right, bottom, left)
+/// @param {bool} $important If true, adds !important.
+@mixin padding($tb, $lr, $pad: (0,0,0,0), $important: null) {
+
+	@if $important {
+		$important: '!important';
+	}
+
+	$x: 0.1em;
+
+	@if unit(_size(element-margin)) == 'rem' {
+		$x: 0.1rem;
+	}
+
+	padding: ($tb + nth($pad,1)) ($lr + nth($pad,2)) max($x, $tb - _size(element-margin) + nth($pad,3)) ($lr + nth($pad,4)) #{$important};
+
+}
+
+/// Encodes a SVG data URL so IE doesn't choke (via codepen.io/jakob-e/pen/YXXBrp).
+/// @param {string} $svg SVG data URL.
+/// @return {string} Encoded SVG data URL.
+@function svg-url($svg) {
+
+	$svg: str-replace($svg, '"', '\'');
+	$svg: str-replace($svg, '%', '%25');
+	$svg: str-replace($svg, '<', '%3C');
+	$svg: str-replace($svg, '>', '%3E');
+	$svg: str-replace($svg, '&', '%26');
+	$svg: str-replace($svg, '#', '%23');
+	$svg: str-replace($svg, '{', '%7B');
+	$svg: str-replace($svg, '}', '%7D');
+	$svg: str-replace($svg, ';', '%3B');
+
+	@return url("data:image/svg+xml;charset=utf8,#{$svg}");
+
+}
+
+/*
+	vendor
+*/
+/// Vendor prefixes.
+/// @var {list}
+$vendor-prefixes: (
+	'-moz-',
+	'-webkit-',
+	'-ms-',
+	''
+);
+
+/// Properties that should be vendorized.
+/// Data via caniuse.com, github.com/postcss/autoprefixer, and developer.mozilla.org
+/// @var {list}
+$vendor-properties: (
+
+	// Animation.
+		'animation',
+		'animation-delay',
+		'animation-direction',
+		'animation-duration',
+		'animation-fill-mode',
+		'animation-iteration-count',
+		'animation-name',
+		'animation-play-state',
+		'animation-timing-function',
+
+	// Appearance.
+		'appearance',
+
+	// Backdrop filter.
+		'backdrop-filter',
+
+	// Background image options.
+		'background-clip',
+		'background-origin',
+		'background-size',
+
+	// Box sizing.
+		'box-sizing',
+
+	// Clip path.
+		'clip-path',
+
+	// Filter effects.
+		'filter',
+
+	// Flexbox.
+		'align-content',
+		'align-items',
+		'align-self',
+		'flex',
+		'flex-basis',
+		'flex-direction',
+		'flex-flow',
+		'flex-grow',
+		'flex-shrink',
+		'flex-wrap',
+		'justify-content',
+		'order',
+
+	// Font feature.
+		'font-feature-settings',
+		'font-language-override',
+		'font-variant-ligatures',
+
+	// Font kerning.
+		'font-kerning',
+
+	// Fragmented borders and backgrounds.
+		'box-decoration-break',
+
+	// Grid layout.
+		'grid-column',
+		'grid-column-align',
+		'grid-column-end',
+		'grid-column-start',
+		'grid-row',
+		'grid-row-align',
+		'grid-row-end',
+		'grid-row-start',
+		'grid-template-columns',
+		'grid-template-rows',
+
+	// Hyphens.
+		'hyphens',
+		'word-break',
+
+	// Masks.
+		'mask',
+		'mask-border',
+		'mask-border-outset',
+		'mask-border-repeat',
+		'mask-border-slice',
+		'mask-border-source',
+		'mask-border-width',
+		'mask-clip',
+		'mask-composite',
+		'mask-image',
+		'mask-origin',
+		'mask-position',
+		'mask-repeat',
+		'mask-size',
+
+	// Multicolumn.
+		'break-after',
+		'break-before',
+		'break-inside',
+		'column-count',
+		'column-fill',
+		'column-gap',
+		'column-rule',
+		'column-rule-color',
+		'column-rule-style',
+		'column-rule-width',
+		'column-span',
+		'column-width',
+		'columns',
+
+	// Object fit.
+		'object-fit',
+		'object-position',
+
+	// Regions.
+		'flow-from',
+		'flow-into',
+		'region-fragment',
+
+	// Scroll snap points.
+		'scroll-snap-coordinate',
+		'scroll-snap-destination',
+		'scroll-snap-points-x',
+		'scroll-snap-points-y',
+		'scroll-snap-type',
+
+	// Shapes.
+		'shape-image-threshold',
+		'shape-margin',
+		'shape-outside',
+
+	// Tab size.
+		'tab-size',
+
+	// Text align last.
+		'text-align-last',
+
+	// Text decoration.
+		'text-decoration-color',
+		'text-decoration-line',
+		'text-decoration-skip',
+		'text-decoration-style',
+
+	// Text emphasis.
+		'text-emphasis',
+		'text-emphasis-color',
+		'text-emphasis-position',
+		'text-emphasis-style',
+
+	// Text size adjust.
+		'text-size-adjust',
+
+	// Text spacing.
+		'text-spacing',
+
+	// Transform.
+		'transform',
+		'transform-origin',
+
+	// Transform 3D.
+		'backface-visibility',
+		'perspective',
+		'perspective-origin',
+		'transform-style',
+
+	// Transition.
+		'transition',
+		'transition-delay',
+		'transition-duration',
+		'transition-property',
+		'transition-timing-function',
+
+	// Unicode bidi.
+		'unicode-bidi',
+
+	// User select.
+		'user-select',
+
+	// Writing mode.
+		'writing-mode',
+
+);
+
+/// Values that should be vendorized.
+/// Data via caniuse.com, github.com/postcss/autoprefixer, and developer.mozilla.org
+/// @var {list}
+$vendor-values: (
+
+	// Cross fade.
+		'cross-fade',
+
+	// Element function.
+		'element',
+
+	// Filter function.
+		'filter',
+
+	// Flexbox.
+		'flex',
+		'inline-flex',
+
+	// Grab cursors.
+		'grab',
+		'grabbing',
+
+	// Gradients.
+		'linear-gradient',
+		'repeating-linear-gradient',
+		'radial-gradient',
+		'repeating-radial-gradient',
+
+	// Grid layout.
+		'grid',
+		'inline-grid',
+
+	// Image set.
+		'image-set',
+
+	// Intrinsic width.
+		'max-content',
+		'min-content',
+		'fit-content',
+		'fill',
+		'fill-available',
+		'stretch',
+
+	// Sticky position.
+		'sticky',
+
+	// Transform.
+		'transform',
+
+	// Zoom cursors.
+		'zoom-in',
+		'zoom-out',
+
+);
+
+// Functions.
+
+/// Removes a specific item from a list.
+/// @author Hugo Giraudel
+/// @param {list} $list List.
+/// @param {integer} $index Index.
+/// @return {list} Updated list.
+@function remove-nth($list, $index) {
+
+	$result: null;
+
+	@if type-of($index) != number {
+		@warn "$index: #{quote($index)} is not a number for `remove-nth`.";
+	}
+	@else if $index == 0 {
+		@warn "List index 0 must be a non-zero integer for `remove-nth`.";
+	}
+	@else if abs($index) > length($list) {
+		@warn "List index is #{$index} but list is only #{length($list)} item long for `remove-nth`.";
+	}
+	@else {
+
+		$result: ();
+		$index: if($index < 0, length($list) + $index + 1, $index);
+
+		@for $i from 1 through length($list) {
+
+			@if $i != $index {
+				$result: append($result, nth($list, $i));
+			}
+
+		}
+
+	}
+
+	@return $result;
+
+}
+
+/// Replaces a substring within another string.
+/// @author Hugo Giraudel
+/// @param {string} $string String.
+/// @param {string} $search Substring.
+/// @param {string} $replace Replacement.
+/// @return {string} Updated string.
+@function str-replace($string, $search, $replace: '') {
+
+	$index: str-index($string, $search);
+
+	@if $index {
+		@return str-slice($string, 1, $index - 1) + $replace + str-replace(str-slice($string, $index + str-length($search)), $search, $replace);
+	}
+
+	@return $string;
+
+}
+
+/// Replaces a substring within each string in a list.
+/// @param {list} $strings List of strings.
+/// @param {string} $search Substring.
+/// @param {string} $replace Replacement.
+/// @return {list} Updated list of strings.
+@function str-replace-all($strings, $search, $replace: '') {
+
+	@each $string in $strings {
+		$strings: set-nth($strings, index($strings, $string), str-replace($string, $search, $replace));
+	}
+
+	@return $strings;
+
+}
+
+// Mixins.
+
+/// Wraps @content in vendorized keyframe blocks.
+/// @param {string} $name Name.
+@mixin keyframes($name) {
+
+	@-moz-keyframes #{$name} { @content; }
+	@-webkit-keyframes #{$name} { @content; }
+	@-ms-keyframes #{$name} { @content; }
+	@keyframes #{$name} { @content; }
+
+}
+
+/// Vendorizes a declaration's property and/or value(s).
+/// @param {string} $property Property.
+/// @param {mixed} $value String/list of value(s).
+@mixin vendor($property, $value) {
+
+	// Determine if property should expand.
+		$expandProperty: index($vendor-properties, $property);
+
+	// Determine if value should expand (and if so, add '-prefix-' placeholder).
+		$expandValue: false;
+
+		@each $x in $value {
+			@each $y in $vendor-values {
+				@if $y == str-slice($x, 1, str-length($y)) {
+
+					$value: set-nth($value, index($value, $x), '-prefix-' + $x);
+					$expandValue: true;
+
+				}
+			}
+		}
+
+	// Expand property?
+		@if $expandProperty {
+			@each $vendor in $vendor-prefixes {
+				#{$vendor}#{$property}: #{str-replace-all($value, '-prefix-', $vendor)};
+			}
+		}
+
+	// Expand just the value?
+		@else if $expandValue {
+			@each $vendor in $vendor-prefixes {
+				#{$property}: #{str-replace-all($value, '-prefix-', $vendor)};
+			}
+		}
+
+	// Neither? Treat them as a normal declaration.
+		@else {
+			#{$property}: #{$value};
+		}
+
+}
+
+/*
+	breakpoints
+*/
+$breakpoints: () !global;
+
+/// Sets breakpoints.
+/// @param {map} $x Breakpoints.
+@mixin breakpoints($x: ()) {
+	$breakpoints: $x !global;
+}
+
+/// Wraps @content in a @media block targeting a specific orientation.
+/// @param {string} $orientation Orientation.
+@mixin orientation($orientation) {
+	@media screen and (orientation: #{$orientation}) {
+		@content;
+	}
+}
+
+// Wraps @content in a @media block using a given query.
+/// @param {string} $query Query.
+@mixin breakpoint($query: null) {
+
+	$breakpoint: null;
+	$op: null;
+	$media: null;
+
+	// Determine operator, breakpoint.
+
+		// Greater than or equal.
+			@if (str-slice($query, 0, 2) == '>=') {
+
+				$op: 'gte';
+				$breakpoint: str-slice($query, 3);
+
+			}
+
+		// Less than or equal.
+			@else if (str-slice($query, 0, 2) == '<=') {
+
+				$op: 'lte';
+				$breakpoint: str-slice($query, 3);
+
+			}
+
+		// Greater than.
+			@else if (str-slice($query, 0, 1) == '>') {
+
+				$op: 'gt';
+				$breakpoint: str-slice($query, 2);
+
+			}
+
+		// Less than.
+			@else if (str-slice($query, 0, 1) == '<') {
+
+				$op: 'lt';
+				$breakpoint: str-slice($query, 2);
+
+			}
+
+		// Not.
+			@else if (str-slice($query, 0, 1) == '!') {
+
+				$op: 'not';
+				$breakpoint: str-slice($query, 2);
+
+			}
+
+		// Equal.
+			@else {
+
+				$op: 'eq';
+				$breakpoint: $query;
+
+			}
+
+	// Build media.
+		@if ($breakpoint and map-has-key($breakpoints, $breakpoint)) {
+
+			$a: map-get($breakpoints, $breakpoint);
+
+			// Range.
+				@if (type-of($a) == 'list') {
+
+					$x: nth($a, 1);
+					$y: nth($a, 2);
+
+					// Max only.
+						@if ($x == null) {
+
+							// Greater than or equal (>= 0 / anything)
+								@if ($op == 'gte') {
+									$media: 'screen';
+								}
+
+							// Less than or equal (<= y)
+								@else if ($op == 'lte') {
+									$media: 'screen and (max-width: ' + $y + ')';
+								}
+
+							// Greater than (> y)
+								@else if ($op == 'gt') {
+									$media: 'screen and (min-width: ' + ($y + 1) + ')';
+								}
+
+							// Less than (< 0 / invalid)
+								@else if ($op == 'lt') {
+									$media: 'screen and (max-width: -1px)';
+								}
+
+							// Not (> y)
+								@else if ($op == 'not') {
+									$media: 'screen and (min-width: ' + ($y + 1) + ')';
+								}
+
+							// Equal (<= y)
+								@else {
+									$media: 'screen and (max-width: ' + $y + ')';
+								}
+
+						}
+
+					// Min only.
+						@else if ($y == null) {
+
+							// Greater than or equal (>= x)
+								@if ($op == 'gte') {
+									$media: 'screen and (min-width: ' + $x + ')';
+								}
+
+							// Less than or equal (<= inf / anything)
+								@else if ($op == 'lte') {
+									$media: 'screen';
+								}
+
+							// Greater than (> inf / invalid)
+								@else if ($op == 'gt') {
+									$media: 'screen and (max-width: -1px)';
+								}
+
+							// Less than (< x)
+								@else if ($op == 'lt') {
+									$media: 'screen and (max-width: ' + ($x - 1) + ')';
+								}
+
+							// Not (< x)
+								@else if ($op == 'not') {
+									$media: 'screen and (max-width: ' + ($x - 1) + ')';
+								}
+
+							// Equal (>= x)
+								@else {
+									$media: 'screen and (min-width: ' + $x + ')';
+								}
+
+						}
+
+					// Min and max.
+						@else {
+
+							// Greater than or equal (>= x)
+								@if ($op == 'gte') {
+									$media: 'screen and (min-width: ' + $x + ')';
+								}
+
+							// Less than or equal (<= y)
+								@else if ($op == 'lte') {
+									$media: 'screen and (max-width: ' + $y + ')';
+								}
+
+							// Greater than (> y)
+								@else if ($op == 'gt') {
+									$media: 'screen and (min-width: ' + ($y + 1) + ')';
+								}
+
+							// Less than (< x)
+								@else if ($op == 'lt') {
+									$media: 'screen and (max-width: ' + ($x - 1) + ')';
+								}
+
+							// Not (< x and > y)
+								@else if ($op == 'not') {
+									$media: 'screen and (max-width: ' + ($x - 1) + '), screen and (min-width: ' + ($y + 1) + ')';
+								}
+
+							// Equal (>= x and <= y)
+								@else {
+									$media: 'screen and (min-width: ' + $x + ') and (max-width: ' + $y + ')';
+								}
+
+						}
+
+				}
+
+			// String.
+				@else {
+
+					// Missing a media type? Prefix with "screen".
+						@if (str-slice($a, 0, 1) == '(') {
+							$media: 'screen and ' + $a;
+						}
+
+					// Otherwise, use as-is.
+						@else {
+							$media: $a;
+						}
+
+				}
+				
+				//@warn 'media: ' + $media; log보기
+
+				// Output.
+				@media #{$media} {
+					@content;
+				}
+		}
+}
+
+/*
+	html-grid
+*/
+/// Initializes the current element as an HTML grid.
+/// @param {mixed} $gutters Gutters (either a single number to set both column/row gutters, or a list to set them individually).
+/// @param {mixed} $suffix Column class suffix (optional; either a single suffix or a list).
+@mixin html-grid($gutters: 1.5em, $suffix: '') {
+
+	// Initialize.
+		$cols: 12;
+		$multipliers: 0, 0.25, 0.5, 1, 1.50, 2.00;
+		$unit: 100% / $cols;
+
+		// Suffixes.
+			$suffixes: null;
+
+			@if (type-of($suffix) == 'list') {
+				$suffixes: $suffix;
+			}
+			@else {
+				$suffixes: ($suffix);
+			}
+
+		// Gutters.
+			$guttersCols: null;
+			$guttersRows: null;
+
+			@if (type-of($gutters) == 'list') {
+
+				$guttersCols: nth($gutters, 1);
+				$guttersRows: nth($gutters, 2);
+
+			}
+			@else {
+
+				$guttersCols: $gutters;
+				$guttersRows: 0;
+
+			}
+
+	// Row.
+		display: flex;
+		flex-wrap: wrap;
+		box-sizing: border-box;
+		align-items: stretch;
+
+		// Columns.
+			> * {
+				box-sizing: border-box;
+			}
+
+		// Gutters.
+			&.gtr-uniform {
+				> * {
+					> :last-child {
+						margin-bottom: 0;
+					}
+				}
+			}
+
+		// Alignment.
+			&.aln-left {
+				justify-content: flex-start;
+			}
+
+			&.aln-center {
+				justify-content: center;
+			}
+
+			&.aln-right {
+				justify-content: flex-end;
+			}
+
+			&.aln-top {
+				align-items: flex-start;
+			}
+
+			&.aln-middle {
+				align-items: center;
+			}
+
+			&.aln-bottom {
+				align-items: flex-end;
+			}
+
+	// Step through suffixes.
+		@each $suffix in $suffixes {
+
+			// Suffix.
+				@if ($suffix != '') {
+					$suffix: '-' + $suffix;
+				}
+				@else {
+					$suffix: '';
+				}
+
+			// Row.
+
+				// Important.
+					> .imp#{$suffix} {
+						order: -1;
+					}
+
+				// Columns, offsets.
+					@for $i from 1 through $cols {
+						> .col-#{$i}#{$suffix} {
+							width: $unit * $i;
+						}
+
+						> .off-#{$i}#{$suffix} {
+							margin-left: $unit * $i;
+						}
+					}
+
+				// Step through multipliers.
+					@each $multiplier in $multipliers {
+
+						// Gutters.
+							$class: null;
+
+							@if ($multiplier != 1) {
+								$class: '.gtr-' + ($multiplier * 100);
+							}
+
+							&#{$class} {
+								margin-top: ($guttersRows * $multiplier * -1);
+								margin-left: ($guttersCols * $multiplier * -1);
+
+								> * {
+									padding: ($guttersRows * $multiplier) 0 0 ($guttersCols * $multiplier);
+								}
+
+								// Uniform.
+									&.gtr-uniform {
+										margin-top: $guttersCols * $multiplier * -1;
+
+										> * {
+											padding-top: $guttersCols * $multiplier;
+										}
+									}
+
+							}
+
+					}
+
+		}
+
+}
+
+@include breakpoints((
+	xlarge:   ( 1281px,  1680px ),
+	large:    ( 981px,   1280px ),
+	medium:   ( 737px,   980px  ),
+	small:    ( 481px,   736px  ),
+	xsmall:   ( 361px,   480px  ),
+	xxsmall:  ( null,    360px  )
+));
+
+@import '/fontawesome-all.min.css';
+
+
+
